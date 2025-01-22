@@ -16,10 +16,12 @@ from numba import njit
 import tqdm
 from cellpose import utils, io, models, denoise
 from skimage.morphology import skeletonize, thin
+from skimage.segmentation import watershed
 import re
 from shutil import rmtree #erasing a whole directory
 import scipy
 from PIL import Image
+import matplotlib.pyplot as plt
 
 
 
@@ -57,8 +59,6 @@ from PIL import Image
 # dimension_data=Dic_dir+'Dimension'
 # =============================================================================
 
-
-Directory= "July6_plate1_xy02"  #the directory you chose to work on    
 # different type of datassets with their cropping parameter
 
 
@@ -302,6 +302,55 @@ def numba_centroid_area(masks):
         centroid[i,:]=np.array([vec2//count,vec1//count],dtype=np.int32)
     return(centroid,area)
 
+#watershed sub routine
+def _watershed(masks,tresh):
+    marker = np.zeros(masks.shape,dtype=int)
+    for i in range(1, np.max(masks)+1):
+        submask = masks == i
+        submask = submask.astype(np.uint8)
+        dist_transform = cv2.distanceTransform(submask,cv2.DIST_L2,5)
+        _, sure_fg = cv2.threshold(dist_transform,tresh*dist_transform.max(),255,0) 
+        non_zero = sure_fg > 0
+        marker[non_zero] = i
+            
+    return marker.astype(np.int32)
+
+
+# re-segmenting unsing the watershed algorithm
+def mask_watershed(dic,saving=False,savingpath='dict'):
+    diclist=list(dic.keys())
+    for i in tqdm.trange(len(diclist)):
+        fichier = diclist[i]
+        img = cv2.imread(dic[fichier]['adress']).astype(np.uint8) 
+        
+        masks = np.array(dic[fichier]['masks'])
+        max_mask = np.max(masks)
+        max_surf = np.max(np.array([np.sum(masks==i) for i in range (1, max_mask+1)]))
+        markers = _watershed(masks,0.2)
+        markers2 = _watershed(masks,0.1)
+        new_masks = cv2.watershed(img,np.array(markers))
+        
+        for i in range (1, max_mask+1):
+            if np.sum(new_masks==i)> 1.5*max_surf:
+                new_masks[new_masks==i] = 0
+                new_masks[markers2==i] = i
+        new_masks[new_masks<1] = 0
+        
+        img = np.array(Image.open(dic[fichier]['adress']))[:,:,1]
+        new_new_masks = watershed(img,markers=np.array(new_masks),compactness=0)
+        for i in range (1, max_mask+1):
+            if np.sum(new_new_masks==i)> 1.5*max_surf:
+                new_new_masks[new_new_masks==i] = 0
+                new_new_masks[new_masks==i] = i
+        
+        
+        
+        dic[fichier]['masks'] = new_new_masks
+        dic[fichier]['outlines']=utils.outlines_list(new_new_masks, multiprocessing=False)
+    if saving:
+        np.savez_compressed(savingpath,dic)
+
+
 #%% Erasing too small masks (less than the fraction frac_mask of the largest mask), and mask with a ratio of saturated area superior to frac_satur . Creating the centroid of the union of acceptable  mask and saving as main_centroid
 def clean_masks(frac_mask,dic,saving=False,savingpath='dict'): 
     #Erase the masks that are too small (and the centroids too)
@@ -498,7 +547,100 @@ def skeletonization(dic,saving=False,savingpath='dict'):
         np.savez_compressed(savingpath,dic,allow_pickle=True)
 
 
+def run_one_dataset_logs_watershed(dic):
+    
+    my_data='../data/'
+    #path of dir
+    #directory with the usefull information of the logs, None if there is no.
 
+    #Temporary directories
+    #directory for output data from cellpose 
+    segments_path = os.path.join(dic,"cellpose_output/")
+
+
+    #Outputs
+    #directory of the processed images (every image has the same pixel size and same zoom)
+    #Saving path for the dictionnary
+    if os.path.exists(dic):
+        for file in os.listdir(dic):
+            rmtree(os.path.join(dic, file))
+    else:
+        os.makedirs(dic)
+    saving_path=os.path.join('results',dic,'Main_dictionnary')
+    #dimension and scale of all the final data
+    #dimension and scale of all the final data
+    list_savingpath=os.path.join('results',dic,'masks_list')
+    
+
+
+    
+    ''' Parameters'''
+
+    
+    #cellpose parameters
+    
+    cel_model_type='cyto2'# 'cyto''cyto2''nuclei'
+    cel_channels=[0,0]  # define CHANNELS to run segementation on grayscale=0, R=1, G=2, B=3; channels = [cytoplasm, nucleus]; nucleus=0 if no nucleus
+    cel_diameter_param = 85 #120 parameter to adjust the expected size (in pixels) of bacteria. Incease if cellpose detects too small masks, decrease if it don't detects small mask/ fusion them. Should be around 1 
+    cel_flow_threshold = 0.15  #oldparam :0.15   [0.8,0.2]
+    cel_cellprob_threshold=0.95 #oldparam :0.95
+    cel_flow_threshold_small = 0.95
+    cel_cellprob_threshold_small=2
+    cel_flow_threshold_big = 0.3
+    cel_cellprob_threshold_big=-0.5#oldparam : 0.0 0.4
+    cell_gpu=True
+    denoise_mod = "denoise_cyto3"
+    
+    #erasing small masks that have a smaller relative size :
+    ratio_erasing_masks=0.2
+    
+    surf_com_thres=0.5
+    boundary_thres=0.3 #threshold to define the boundary of a cell (bigger one if =1, smaller if =0)
+    
+    
+    
+    step=0
+    ''''''
+    
+    print("run_cel",step)
+    step+=1
+    run_cell_simple(os.path.join(my_data, dic),cel_model_type,cel_channels,cel_diameter_param,cel_flow_threshold,cel_cellprob_threshold,segments_path,denoise_mod, gpuval=cell_gpu)
+    # run_cell_boundary(my_data+dic,cel_model_type,cel_channels,cel_diameter_param,cel_flow_threshold_small,cel_flow_threshold_big,cel_cellprob_threshold_small,cel_cellprob_threshold_big,segments_path,surf_com_thres,boundary_thres,denoise_mod, gpuval=cell_gpu)
+
+    print("download_dict",step)
+    step+=1
+    main_dict=download_dict_logs_only(my_data,dic,segments_path,saving=True,savingpath=saving_path)
+    
+    # main_dict=np.load(saving_path+'.npz', allow_pickle=True)['arr_0'].item()
+    
+    print("main_parenting",step)
+    step+=1
+    main_parenting(main_dict)
+    
+    print("watershed",step)
+    step+=1
+    mask_watershed(main_dict)
+    
+    print("centroid_area",step)
+    step+=1
+    centroid_area(main_dict)
+    
+    print("clean_masks",step)
+    step+=1
+    clean_masks(ratio_erasing_masks, main_dict)
+    
+    print("main_parenting",step)
+    step+=1
+    main_parenting(main_dict) #re-run in case all masks in a frame are erased
+    
+    print("skeletonization",step)
+    step+=1
+    skeletonization(main_dict)
+    
+    print("construction_mask_list",step)
+    step+=1
+    construction_mask_list(main_dict,list_savingpath,saving=True,savingpath=saving_path)
+    
 
 
 def run_one_dataset_logs_only(dic):
@@ -706,11 +848,75 @@ def run_end_preprocess(dic):
     
 
 
+def run_end_preprocess_watershed(dic):
+    
+    my_data='../data/'
+    #path of dir
+    #directory with the usefull information of the logs, None if there is no.
+
+    #Temporary directories
+    #directory for output data from cellpose 
+    segments_path = os.path.join(dic,"cellpose_output/")
+
+    saving_path=os.path.join('results',dic,'Main_dictionnary')
+    #dimension and scale of all the final data
+    #dimension and scale of all the final data
+    list_savingpath=os.path.join('results',dic,'masks_list')
+    
+
+
+    
+    ''' Parameters'''
+
+
+    
+    #erasing small masks that have a smaller relative size :
+    ratio_erasing_masks=0.2
+    
+    
+    step=1
+    print("download_dict",step)
+    step+=1
+    main_dict=download_dict_logs_only(my_data,dic,segments_path,saving=True,savingpath=saving_path)
+    
+    # main_dict=np.load(saving_path+'.npz', allow_pickle=True)['arr_0'].item()
+    
+    print("main_parenting",step)
+    step+=1
+    main_parenting(main_dict)
+    
+    print("watershed",step)
+    step+=1
+    mask_watershed(main_dict)
+    
+    
+    print("centroid_area",step)
+    step+=1
+    centroid_area(main_dict)
+
+    print("clean_masks",step)
+    step+=1
+    clean_masks(ratio_erasing_masks, main_dict)
+    
+    print("main_parenting",step)
+    step+=1
+    main_parenting(main_dict) #re-run in case all masks in a frame are erased
+    
+    print("skeletonization",step)
+    step+=1
+    skeletonization(main_dict)
+    
+    print("construction_mask_list",step)
+    step+=1
+    construction_mask_list(main_dict,list_savingpath,saving=True,savingpath=saving_path)
+
 if __name__ == "__main__":
     
     '''Running the different functions'''
     
-    run_one_dataset_logs_only(Directory)
+
+    Directory= "July6_plate1_xy02"  #the directory you chose to work on    
+    run_one_dataset_logs_watershed(Directory)
  
         
 

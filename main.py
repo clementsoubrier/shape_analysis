@@ -32,7 +32,7 @@ def reposition_centroids(dataset_time):
   
 
 def main(direc):
-    pr.run_end_preprocess(direc)
+    pr.run_end_preprocess_watershed(direc)
     fg.Final_lineage_tree(direc)    
     pltfl.run_whole_lineage_tree(direc, show=False)
 
@@ -48,12 +48,14 @@ if __name__ == "__main__":
         pr.run_cellpose(direc)
     
     with Pool(processes=8) as pool:
-            for direc in pool.imap_unordered(reposition_centroids, reposition_list):
-                pass
-            
-    with Pool(processes=8) as pool:
             for direc in pool.imap_unordered(main, dir_list):
                 pass
+    
+    
+    with Pool(processes=8) as pool:
+            for direc in pool.imap_unordered(reposition_centroids,reposition_list):
+                pass
+            
     
     cons_dat.main(dir_list)
     mot.main()

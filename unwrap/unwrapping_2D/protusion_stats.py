@@ -165,7 +165,7 @@ def max_protusion_plot(direct):
     
     all_cell_folders = [os.path.join(direct, ff) for ff in os.listdir(direct)]
     for cell_folder_ii in np.arange(len(all_cell_folders)):
-        all_outlines, _, all_outlines_cMCF_topography, all_outlines_curvature, _, _, fin_times = conformal_representation(all_cell_folders[cell_folder_ii])
+        all_outlines, _, all_outlines_cMCF_topography, all_outlines_curvature, disk_coords, _, fin_times = conformal_representation(all_cell_folders[cell_folder_ii])
      
         plt.figure()
         plt.title(f'Shape evolution, cell {cell_folder_ii}')
@@ -190,8 +190,8 @@ def max_protusion_plot(direct):
         max_top = np.array(max_top)
         max_curv = np.array(max_curv)   
         
-        ax.scatter(max_top[:,0], 
-                        max_top[:,1], max_top[:,2], c='k', label='max topo height')
+        # ax.scatter(max_top[:,0], 
+        #                 max_top[:,1], max_top[:,2], c='k', label='max topo height')
         ax.scatter(max_curv[:,0], 
                         max_curv[:,1], max_curv[:,2], c='r', label='max curvature')
         ax.legend()
@@ -218,16 +218,18 @@ def max_protusion_plot(direct):
             max_curv.append([topography_coords_disk[index_curvature][0], topography_coords_disk[index_curvature][1], time])
             
         max_top = np.array(max_top)
-        max_curv = np.array(max_curv)   
-        
-        ax.scatter(max_top[:,0], 
-                        max_top[:,1], max_top[:,2], c='k', label='max topo height')
+        max_curv = np.array(max_curv)  
+         
+        ax.plot3D(disk_coords[:,0], disk_coords[:,1], np.zeros(len(disk_coords[:,0])), c='k')
+        ax.plot3D(disk_coords[:,0], disk_coords[:,1], time*np.ones(len(disk_coords[:,0])), c='k')
+        # ax.scatter(max_top[:,0], 
+        #                 max_top[:,1], max_top[:,2], c='k', label='max topo height')
         ax.scatter(max_curv[:,0], 
                         max_curv[:,1], max_curv[:,2], c='r', label='max curvature')
         ax.legend()
         plt.show()
             
-def _stats_max_protusions(cell_folder, smoothing = True, smooth_time = 2):
+def _stats_max_protusions(cell_folder, smoothing = True, smooth_time = 4, smooth_space=2):
     all_outlines, _, all_outlines_cMCF_topography, all_outlines_curvature, _, fin_centr, fin_times = conformal_representation(cell_folder)
     tot_len = len(all_outlines)
     vec_topo = []
@@ -245,10 +247,12 @@ def _stats_max_protusions(cell_folder, smoothing = True, smooth_time = 2):
         
         vec_topo.append(outline[index] - centr)
         vec_curv.append(outline[index_curv] - centr)
-        val_curv.append(curv[index_curv])
+        range_m = [max(0,index_curv-smooth_space),min(len(curv)-1,index_curv+smooth_space)]
+        val_curv.append(np.median(curv[range_m[0]:range_m[1]]))
         
     displacement = fin_centr[1:]- fin_centr[:-1]
     velocity = np.zeros(np.shape(displacement))
+    new_curv = val_curv =  np.array(val_curv)
     if smoothing:
         
         for jj, val_jj in enumerate(displacement):
@@ -256,6 +260,7 @@ def _stats_max_protusions(cell_folder, smoothing = True, smooth_time = 2):
             if np.sum(mask) >1 :
                 time_var = fin_times[1:] - fin_times[:-1]
                 velocity[jj] = (np.sum(displacement[mask])) / (np.sum(time_var[mask]))
+                val_curv[jj] = np.mean(new_curv[mask])
             else:
                 velocity[jj] = val_jj / (fin_times[jj+1] - fin_times[jj])
             
@@ -264,7 +269,7 @@ def _stats_max_protusions(cell_folder, smoothing = True, smooth_time = 2):
         velocity[:,1] = displacement[:,1] / (fin_times[1:]-fin_times[:-1])
         
 
-    return velocity, vec_topo, vec_curv, val_curv
+    return velocity, vec_topo, vec_curv, list(val_curv)
 
 def stats_max_protusions(direct):
     from multiprocessing import Pool
@@ -288,15 +293,26 @@ def stats_max_protusions(direct):
     val_curv = np.array(val_curv)
     
     plt.figure()
+    bin_num = 20
     plt.xlabel('Max curvature')
     plt.ylabel('Velocity norm')
     vel_norm = (res_velo[:,0]**2+res_velo[:,1]**2)**0.5
-    plt.scatter(-val_curv, vel_norm)
+    
+    hist = np.linspace(np.min(-val_curv), np.max(-val_curv)+0.001,bin_num+1)
+    res = np.zeros(bin_num)
+    for ii in range(bin_num):
+        mask = np.logical_and(val_curv<hist[ii+1], -val_curv>=hist[ii])
+        res[ii] = np.mean(vel_norm[mask])
+    print(hist, res)
+    plt.plot(hist[1:], res)
+    print('velocity stats : ',np.mean(vel_norm), np.median(vel_norm), np.std(vel_norm))
+    # plt.scatter(-val_curv, vel_norm)
+    
+    
     
     plt.figure()
     bin_num = 20
     bottom = 400
-
     theta_topo = np.arctan2(res_topo[:,0], res_topo[:,1])
     theta_velo = np.arctan2(res_velo[:,0], res_velo[:,1])
     theta = (theta_topo - theta_velo ) % (2 * np.pi)
@@ -319,15 +335,38 @@ def stats_max_protusions(direct):
     bin_num = 20
     bottom = 400
 
-    theta_curv = np.arctan2(res_curv[:,0], res_curv[:,1])
-    theta_velo = np.arctan2(res_velo[:,0], res_velo[:,1])
+    mask_velo = vel_norm >=  np.median(vel_norm)*1.5
+    theta_curv = np.arctan2(res_curv[:,0][mask_velo], res_curv[:,1][mask_velo])
+    theta_velo = np.arctan2(res_velo[:,0][mask_velo], res_velo[:,1][mask_velo])
     theta = (theta_curv - theta_velo) % (2 * np.pi)
     
     hist = np.histogram(theta, bins=bin_num, range=(0,2 * np.pi))
     width = (2*np.pi) / bin_num
 
     ax = plt.subplot(111, polar=True)
-    ax.set_title('Angle of max protusion with the displacement, curvature')
+    ax.set_title('Angle of max protusion with the displacement, high speed, curvature')
+    bars = ax.bar((hist[1][:-1]+hist[1][1:])/2, hist[0], width=width, bottom=bottom)
+
+    # Use custom colors and opacity
+    max_val = np.max(hist[0])
+    for r, bar in zip(hist[0], bars):
+        bar.set_facecolor(plt.cm.jet(r / max_val))
+        bar.set_alpha(0.8)
+        
+    plt.figure()
+    bin_num = 20
+    bottom = 400
+
+    non_mask_velo = np.logical_not(mask_velo)
+    theta_curv = np.arctan2(res_curv[:,0][non_mask_velo], res_curv[:,1][non_mask_velo])
+    theta_velo = np.arctan2(res_velo[:,0][non_mask_velo], res_velo[:,1][non_mask_velo])
+    theta = (theta_curv - theta_velo) % (2 * np.pi)
+    
+    hist = np.histogram(theta, bins=bin_num, range=(0,2 * np.pi))
+    width = (2*np.pi) / bin_num
+
+    ax = plt.subplot(111, polar=True)
+    ax.set_title('Angle of max protusion with the displacement, low speed, curvature')
     bars = ax.bar((hist[1][:-1]+hist[1][1:])/2, hist[0], width=width, bottom=bottom)
 
     # Use custom colors and opacity
@@ -345,8 +384,8 @@ def stats_max_protusions(direct):
 if __name__ == '__main__':
     glob_folder = 'cells'
     
-    # max_protusion_plot(glob_folder)
-    stats_max_protusions(glob_folder)
+    max_protusion_plot(glob_folder)
+    # stats_max_protusions(glob_folder)
     
     
 

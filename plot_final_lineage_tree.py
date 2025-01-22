@@ -486,9 +486,9 @@ def run_whole_lineage_tree(direc,thres=final_thresh,min_number=min_len_ROI,thres
  
 def main(direc):
     print(direc)
-    pr.run_one_dataset_logs_only(direc)
+    pr.run_one_dataset_logs_watershed(direc)
     fg.Final_lineage_tree(direc)
-    run_whole_lineage_tree(direc, show=False)
+    run_whole_lineage_tree(direc,show=False)# 
 
 
 
