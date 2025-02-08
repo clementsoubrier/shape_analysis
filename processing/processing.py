@@ -911,7 +911,7 @@ def run_end_preprocess_watershed(dic):
     construction_mask_list(main_dict,list_savingpath,saving=True,savingpath=saving_path)
 
 if __name__ == "__main__":
-    
+    os.chdir('..')
     '''Running the different functions'''
     
 

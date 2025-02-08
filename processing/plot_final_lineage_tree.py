@@ -494,6 +494,7 @@ def main(direc):
 
     
 if __name__ == "__main__":
+    os.chdir('..')
     Directory = "July6_plate1_xy02" 
     main(Directory)
    

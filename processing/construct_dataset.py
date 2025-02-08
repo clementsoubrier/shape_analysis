@@ -70,8 +70,7 @@ def main(dir_list):
                     area =  np.array(area)
 
                     if 0.75<=np.min(var_area) \
-                        and  np.max(var_area)<=1.33 \
-                        and np.max(np.abs(position[:-1]-position[1:]))<100 :
+                        and  np.max(var_area)<=1.33 : #and np.max(np.abs(position[:-1]-position[1:]))<100 
                             cell_name = 'cell_'+str(count)
                             for frame_number in range(len(position)):
                                 frame_name = 'frame_'+str(frame_number+1)
@@ -90,6 +89,7 @@ def main(dir_list):
         
     
 if __name__ == "__main__":
+    os.chdir('..')
     dir_list = os.listdir('../data/')
     # dir_list = ['July6_plate1_xy02/', 'July6_plate1_xy05/', 'July6_plate1_xy06/',
     #             'July7_plate1_xy01/', 'July7_plate1_xy02/', 'July7_plate1_xy03/', 'July7_plate1_xy04/', 'July7_plate1_xy05/', 'July7_plate1_xy06/', 'July7_plate1_xy07/', 'July7_plate1_xy08/', 'July7_plate1_xy09/',

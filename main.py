@@ -4,11 +4,11 @@ import numpy as np
 from copy import deepcopy
 
 
-import processing as pr
-import construct_dataset as cons_dat
-import final_graph as fg
-import plot_final_lineage_tree as pltfl
-import motility as mot
+import processing.processing as pr
+import processing.construct_dataset as cons_dat
+import processing.final_graph as fg
+import processing.plot_final_lineage_tree as pltfl
+import motility_analysis.motility as mot
 
 
 def reposition_centroids(dataset_time):
@@ -39,7 +39,6 @@ def main(direc):
 
 if __name__ == "__main__":
 
-    
     reposition_list = [['July13_plate1_xy03', 7], ['July13_plate1_xy07', 7], ['July13_plate1_xy08', 7],  ['July13_plate1_xy09', 7], ['July13_plate1_xy11', 7], ['July14_plate1_xy01', 43],  ['July14_plate1_xy02', 34],  ['July14_plate1_xy03', 43], ['July14_plate1_xy05', 43]]
 
     

@@ -367,7 +367,7 @@ def Final_lineage_tree(dic,max_diff_time=depth_search,surfthresh=surface_thresh,
     
 
 if __name__ == "__main__":
-    
+    os.chdir('..')
 
     
 

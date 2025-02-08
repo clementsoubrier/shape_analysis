@@ -39,7 +39,7 @@ def motility_traj(direcs,plot=True,ret=True):
                 var_area = np.array([area[i+1]/area[i] for i in range(len(area)-1)])
                 area =  np.array(area)
 
-                if 0.75<=np.min(var_area) and  np.max(var_area)<=1.33 and np.max(np.abs(position[:-1]-position[1:]))<100 and time[0]<20:
+                if 0.75<=np.min(var_area) and  np.max(var_area)<=1.33 and time[0]<40: #and np.max(np.abs(position[:-1]-position[1:]))<100 and time[0]<20
                     traj.append(np.column_stack((position-position[0,:],time))) 
                     areas.append(np.column_stack((area,time))) 
 
@@ -239,7 +239,8 @@ def stats(direcs):
         else:
             distx = distribution[distribution[:,2]==i][:,0]
             disty = distribution[distribution[:,2]==i][:,1]
-            res.append([np.average((distx-np.average(distx))*(disty-np.average(disty)))/(np.std(distx)*np.std(disty)),i])
+            if np.std(distx)*np.std(disty) !=0:
+                res.append([np.average((distx-np.average(distx))*(disty-np.average(disty)))/(np.std(distx)*np.std(disty)),i])
                        
     res = np.array(res)
     plt.scatter(res[:,1],res[:,0])
@@ -254,8 +255,9 @@ def stats(direcs):
     for i in np.unique(distribution[:,2]):
         distx = distribution[distribution[:,2]==i][:,0]
         disty = distribution[distribution[:,2]==i][:,1]
-        res.append([np.average(distx),np.average(disty),i])
-        res2.append([np.std(distx),np.std(disty),i])
+        if np.std(distx)*np.std(disty) !=0:
+            res.append([np.average(distx),np.average(disty),i])
+            res2.append([np.std(distx),np.std(disty),i])
                        
     res = np.array(res)
     res2 = np.array(res2)
@@ -310,10 +312,11 @@ def main():
         plt.close('all')
     
 if __name__ == "__main__":
-    # main()
+    os.chdir('..')
+    main()
 
-    elem = ['July13_plate1_xy02 repositioned', 'July13_plate1_xy03', 'July13_plate1_xy05 repositioned', 'July13_plate1_xy07', 'July13_plate1_xy08',  'July13_plate1_xy09',  'July13_plate1_xy10', 'July13_plate1_xy11' , 'July13_plate1_xy12']
-    motility_traj(elem)
-    stats(elem)
-    plt.close('all') 
+    # elem = ['July15_plate1_xy01', 'July15_plate1_xy02', 'July15_plate1_xy03']
+    # motility_traj(elem)
+    # stats(elem)
+    # plt.close('all') 
         

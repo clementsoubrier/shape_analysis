@@ -4,7 +4,9 @@ __pycache__
 *.avi
 *.xlsx
 *.png
+*.h5
 results/*/*
+results/*
 
 plots/
 plots/*
