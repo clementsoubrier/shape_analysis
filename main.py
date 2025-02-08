@@ -4,7 +4,7 @@ import numpy as np
 from copy import deepcopy
 
 
-import processing.processing as pr
+import processing.segmentation as pr
 import processing.construct_dataset as cons_dat
 import processing.final_graph as fg
 import processing.plot_final_lineage_tree as pltfl

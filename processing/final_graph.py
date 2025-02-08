@@ -10,7 +10,7 @@ import numpy as np
 from numba import njit
 from copy import deepcopy
 import tqdm
-import processing as pcs
+import segmentation as seg
 
 Directory= "July6_plate1_xy02/" 
 
@@ -41,14 +41,14 @@ def trans_vector_matrix(dic,max_diff_time):
         fichier1=dic_list[number]
         if number<len(dic_list)-1 :
             time1=dic[fichier1]['time']
-            masks1=pcs.main_mask(dic[fichier1]['masks'])
+            masks1=seg.main_mask(dic[fichier1]['masks'])
             angle1=dic[fichier1]['angle']
             main_centr1=dic[fichier1]['main_centroid']
             i=1
             timer=dic[dic_list[number+i]]['time']
             while abs(timer-time1)<=max_diff_time:
                 fichier2=dic_list[number+i]
-                masks2=pcs.main_mask(dic[fichier2]['masks'])
+                masks2=seg.main_mask(dic[fichier2]['masks'])
                 angle2=dic[fichier2]['angle']
                 main_centr2=dic[fichier2]['main_centroid']
                 update_trans_vector_matrix(mat_vec,mat_ang,masks1,angle1,main_centr1,time1,masks2,angle2,main_centr2,timer,max_diff_time)
@@ -65,19 +65,19 @@ def update_trans_vector_matrix(mat_vec,mat_ang,masks1,angle1,main_centr1,time1,m
     angle=angle2-angle1
     if angle==0:
         #vecguess=main_centr1-main_centr2
-        res=pcs.opt_trans_vec2(masks1,masks2)#,rad,vecguess
+        res=seg.opt_trans_vec2(masks1,masks2)#,rad,vecguess
         mat_vec[time1,timer-time1+max_diff_time]=res
         mat_vec[timer,time1-timer+max_diff_time]=-res
     else:
         dim1,dim2=np.shape(masks1)
         centerpoint=np.array([dim1//2,dim2//2],dtype=np.int32)
-        #vecguess=(pcs.rotation_vector(angle,main_centr1,centerpoint)-main_centr2).astype(np.int32)
-        masks1=pcs.rotation_img(angle,masks1,centerpoint)
-        res=pcs.opt_trans_vec2(masks1,masks2).astype(np.int32)#,rad,vecguess
+        #vecguess=(seg.rotation_vector(angle,main_centr1,centerpoint)-main_centr2).astype(np.int32)
+        masks1=seg.rotation_img(angle,masks1,centerpoint)
+        res=seg.opt_trans_vec2(masks1,masks2).astype(np.int32)#,rad,vecguess
         mat_vec[time1,timer-time1+max_diff_time]=res
         mat_ang[time1,timer-time1+max_diff_time]=angle
         mat_ang[timer,time1-timer+max_diff_time]=-angle
-        mat_vec[timer,time1-timer+max_diff_time]=(pcs.rotation_vector(-angle,-res,np.array([0,0],dtype=np.int32))).astype(np.int32)
+        mat_vec[timer,time1-timer+max_diff_time]=(seg.rotation_vector(-angle,-res,np.array([0,0],dtype=np.int32))).astype(np.int32)
 
 
 
@@ -101,12 +101,12 @@ def lineage_matrix(dic,maskslist,mat_vec,mat_ang,max_diff_time,threshold):
             mask_p=dic[fichier]['masks']
             area_p=dic[fichier]['area']
             
-            mask_c=pcs.mask_transfert(mask_c,transfert)
+            mask_c=seg.mask_transfert(mask_c,transfert)
             
             if angle!=0:            #check on real data
                 dim1,dim2=np.shape(mask_p)
                 centerpoint=np.array([dim1//2,dim2//2],dtype=np.int32)
-                mask_p=pcs.rotation_img(angle,mask_p,centerpoint)
+                mask_p=seg.rotation_img(angle,mask_p,centerpoint)
             
             links_p,links_c =comparision_mask_score(mask_c,mask_p,area_c,area_p,threshold)
             len_p,len_c=np.shape(links_p)

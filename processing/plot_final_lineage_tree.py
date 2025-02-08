@@ -14,7 +14,7 @@ from cellpose import plot, utils
 from PIL import Image
 from multiprocessing import Pool
 
-import processing as pr
+import segmentation as seg
 import final_graph as fg
 import extract_individuals as exi
 
@@ -228,10 +228,10 @@ def plot_image_lineage_tree(ROI_dic,masks_list,dic,maskcol,indexlist,directory,s
                 col_ind_list[i]=0
             else:
                 col_ind_list[i]=col_ind_list[i]%len_col+1
-        masks=pr.update_masks(masks,col_ind_list)
+        masks=seg.update_masks(masks,col_ind_list)
         
         colormask=np.array(maskcol)
-        mask_RGB = plot.mask_overlay(pr.renorm_img(img),masks,colors=colormask)#image with masks
+        mask_RGB = plot.mask_overlay(seg.renorm_img(img),masks,colors=colormask)#image with masks
         plt.imshow(mask_RGB)
         
         # plot the centroids and the centerlines
@@ -282,7 +282,7 @@ def plot_image_lineage_tree(ROI_dic,masks_list,dic,maskcol,indexlist,directory,s
             col_ind_list[i]=0
         else:
             col_ind_list[i]=col_ind_list[i]%len_col+1
-    masks=pr.update_masks(masks,col_ind_list)
+    masks=seg.update_masks(masks,col_ind_list)
     colormask=np.array(maskcol)
     mask_RGB = plot.mask_overlay(img,masks,colors=colormask)#image with masks
     plt.imshow(mask_RGB)
@@ -486,7 +486,7 @@ def run_whole_lineage_tree(direc,thres=final_thresh,min_number=min_len_ROI,thres
  
 def main(direc):
     print(direc)
-    pr.run_one_dataset_logs_watershed(direc)
+    seg.run_one_dataset_logs_watershed(direc)
     fg.Final_lineage_tree(direc)
     run_whole_lineage_tree(direc,show=False)# 
 
