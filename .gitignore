@@ -16,5 +16,7 @@ plots/*/*
 
 cells/
 cells/*/*
+cells_morpho/
+cells_morpho/*/*
 !/**/.gitkeep
 

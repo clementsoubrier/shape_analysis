@@ -3,6 +3,8 @@ import numpy as np
 from numba import njit
 import shutil
 
+from PIL import Image
+
 
 
 def isolated_mask(indices, main_dict, main_list, min_pixel_dist=2):
@@ -42,7 +44,7 @@ def main(dir_list):
 
     ROIdict='ROI_dict.npz'
 
-    saving_dir = 'cells'
+    saving_dir = 'cells_morpho'
     
     if os.path.exists(saving_dir):
         for folder in os.listdir(saving_dir):
@@ -62,17 +64,14 @@ def main(dir_list):
             if len(indices)>=5 and ROI_dict[ROI]['Children']==[] and ROI_dict[ROI]['Parent']=='':
                 good_masks = isolated_mask(indices, main_dict, main_list)
                 if good_masks :
-                    position = np.array([list(main_dict[main_list[id][2]]['repositionned_centroid'][main_list[id][3]-1]) for id in indices])
-                    time = np.array([main_dict[main_list[id][2]]['time'] for id in indices])
                     area =  [int(main_dict[main_list[id][2]]['area'][main_list[id][3]-1]) for id in indices]
-                    outlines = [main_dict[main_list[id][2]]['repositionned_outlines'][main_list[id][3]-1] for id in indices]
                     var_area = np.array([area[i+1]/area[i] for i in range(len(area)-1)])
                     area =  np.array(area)
 
                     if 0.75<=np.min(var_area) \
                         and  np.max(var_area)<=1.33 : #and np.max(np.abs(position[:-1]-position[1:]))<100 
                             cell_name = 'cell_'+str(count)
-                            for frame_number in range(len(position)):
+                            for frame_number, id  in enumerate(indices):
                                 frame_name = 'frame_'+str(frame_number+1)
                                 path = os.path.join(saving_dir, cell_name, frame_name)
                                 if os.path.exists(path):
@@ -80,16 +79,23 @@ def main(dir_list):
                                         os.remove(os.path.join(path, file))
                                 else:
                                     os.makedirs(path)
-                                np.save(os.path.join(path, 'centroid.npy'),  position[frame_number]  )
-                                np.save(os.path.join(path, 'time.npy'),   time[frame_number] )
-                                np.save(os.path.join(path, 'outline.npy'),   outlines[frame_number] )
+                                position = main_dict[main_list[id][2]]['repositionned_centroid'][main_list[id][3]-1]
+                                time = main_dict[main_list[id][2]]['time']
+                                # outlines = main_dict[main_list[id][2]]['repositionned_outlines'][main_list[id][3]-1]
+                                mask = main_dict[main_list[id][2]]['masks'] == (main_list[id][3])
+                                img = np.array(Image.open(main_dict[main_list[id][2]]['adress']))[:,:,1]
+                                morphology = np.array([[a[0], a[1], b] for b,a in zip(img[mask],np.transpose(np.nonzero(mask)))])
+                                np.save(os.path.join(path, 'centroid.npy'),  position  )
+                                np.save(os.path.join(path, 'time.npy'),   time )
+                                # np.save(os.path.join(path, 'outline.npy'),   outlines )
+                                np.save(os.path.join(path, 'morphology.npy'),   morphology )
                             count+=1
                                     
                     
         
     
 if __name__ == "__main__":
-    os.chdir('..')
+    # os.chdir('..')
     dir_list = os.listdir('../data/')
     # dir_list = ['July6_plate1_xy02/', 'July6_plate1_xy05/', 'July6_plate1_xy06/',
     #             'July7_plate1_xy01/', 'July7_plate1_xy02/', 'July7_plate1_xy03/', 'July7_plate1_xy04/', 'July7_plate1_xy05/', 'July7_plate1_xy06/', 'July7_plate1_xy07/', 'July7_plate1_xy08/', 'July7_plate1_xy09/',
